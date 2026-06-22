@@ -1,0 +1,163 @@
+# =============================================================================
+# ADAS Perception System — Default Configuration
+# =============================================================================
+# Each section corresponds to a future phase. Values are commented out or set
+# to safe defaults until the relevant phase is implemented.
+# =============================================================================
+
+video:
+  type: file              # file | webcam
+  path: ./data/test1.mp4
+  loop: false
+  webcam_device: 0
+  width: 1280
+  height: 720
+
+detector:
+  type: yolo
+  model_path: ./weights/best.pt
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  device: cuda:0              # cpu | cuda:0 | mps
+  class_filter:            # null = all classes
+    - person
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+
+tracker:
+  type: bytetrack
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.8
+  frame_rate: 30
+  minimum_consecutive_frames: 1
+
+depth:
+  enabled: true
+  type: depth_anything_v2
+  model_name: depth-anything/Depth-Anything-V2-Small-hf
+  device: cuda:0
+  input_size: 518
+  run_every_n_frames: 1    # for perf; 1 = every frame
+
+fusion:
+  sampling: median_center
+  center_box_ratio: 0.5
+  min_valid_depth_pixels: 10
+
+distance:
+  type: relative          # relative | calibrated
+  calibrated:
+    focal_length_px: 800
+    class_real_heights:
+      person: 1.7
+      car: 1.5
+      truck: 3.0
+      bus: 3.2
+      bicycle: 1.0
+      motorcycle: 1.2
+    fallback_height: 1.5
+
+memory:
+  max_history_per_track: 60
+  stale_after_frames: 60
+
+motion:
+  enabled: true
+  min_samples: 5
+  smoothing: ema
+  ema_alpha: 0.4
+  stationary_threshold_mps: 0.3
+
+ttc:
+  type: simple
+  max_ttc_seconds: 30.0
+  min_speed_mps: 0.2
+
+risk:
+  type: score_based
+  weights:
+    distance: 0.4
+    ttc: 0.5
+    speed: 0.1
+    lane: 0.1
+    scene: 0.15
+  thresholds:
+    dist_critical_m: 5.0
+    dist_safe_m: 50.0
+    ttc_critical_s: 1.0
+    ttc_safe_s: 6.0
+    speed_critical_mps: 15.0
+
+warning:
+  min_level: MEDIUM
+  cooldown_sec: 2.0
+  hysteresis_frames: 3
+  channels:
+    - console
+    - audio_beep
+
+lane:
+  enabled: true
+  model_type: clrnet
+  model_path: ./weights/culane_r18.pth
+  device: cuda:0
+  input_width: 800
+  input_height: 320
+  conf_threshold: 0.5
+  lane_confidence_threshold: 0.5
+  max_lanes: 4
+  temporal_smoothing: true
+  smoothing_window: 5
+
+signs:
+  enabled: false              # off by default until model is supplied
+  type: yolo_signs
+  model_path: weights/traffic_signs_yolo.pt
+  conf_threshold: 0.35
+  device: cpu
+  run_every_n_frames: 2
+
+scene:
+  enabled: true
+  sign_latch_frames: 30
+
+visualization:
+  enabled: true
+  layers:
+    - depth
+    - lane
+    - perceived
+    - risk
+    - sign
+    - hud
+    - fps
+  perceived:
+    show_distance: true
+    show_speed: true
+    show_ttc: true
+  depth:
+    alpha: 0.35
+    colormap: MAGMA
+  display: true
+  save_video: true
+  output_path: ./data/output/result.mp4
+
+evaluation:
+  output_dir: ./reports
+  detection:
+    gt_path: null
+    iou_thresholds: [0.5, 0.75]
+  tracking:
+    gt_path: null
+  depth:
+    mode: temporal_consistency   # temporal_consistency | gt
+    gt_path: null
+
+optimization:
+  enabled: false          # Phase 17
+  backend: onnx           # onnx | tensorrt
+  precision: fp16

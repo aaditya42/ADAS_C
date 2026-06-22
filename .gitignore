@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Pytest
+.pytest_cache/
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Models
+weights/
+models/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+
+# Dataset
+data/
+datasets/
+
+# Temporary
+tmp/
+temp/
+
+# Outputs
+outputs/
+results/
+runs/
+
+# Environment variables
+.env
+.env.*

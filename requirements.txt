@@ -1,0 +1,16 @@
+numpy>=1.24.0
+opencv-python>=4.8.0
+PyYAML>=6.0
+ultralytics>=8.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+python-dotenv>=1.0.0
+supervision>=0.20.0
+transformers>=4.40.0
+pillow>=10.0.0
+timm>=0.9.0
+accelerate>=0.27.0
+onnx>=1.16.0
+motmetrics>=1.4.0
+psutil>=5.9.0
+pycocotools>=2.0.7
