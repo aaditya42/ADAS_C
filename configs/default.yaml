@@ -113,6 +113,17 @@ lane:
   temporal_smoothing: true
   smoothing_window: 5
 
+lane_tracking:
+  enabled: false
+  smoothing_alpha: 0.25
+  max_missing_frames: 5
+  confidence_threshold: 0.5
+  min_points: 6
+  max_bottom_jump: 80.0
+  max_geometry_delta: 600.0
+  extend_above_pixels: 40
+  min_allowed_y: 350
+
 signs:
   enabled: false              # off by default until model is supplied
   type: yolo_signs
@@ -145,6 +156,7 @@ visualization:
   display: true
   save_video: true
   output_path: ./data/output/result.mp4
+  codec: mp4v
 
 evaluation:
   output_dir: ./reports

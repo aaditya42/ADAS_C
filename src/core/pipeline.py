@@ -33,6 +33,7 @@ class PerceptionPipeline:
         self._risk_engine: Any = None
         self._warning_manager: Any = None
         self._lane_detector: Any = None
+        self._lane_tracker: Any = None
         self._signs_cache: list[Any] = []
         self._last_signs_frame_id: int = -1
         self._scene_builder: Any = None
@@ -274,15 +275,37 @@ class PerceptionPipeline:
                 self._lane_detector = False
         return self._lane_detector if self._lane_detector is not False else None
 
+    @property
+    def lane_tracker(self) -> Any:
+        """Lazy-initialised lane tracker (or None if disabled)."""
+        if self._lane_tracker is None:
+            track_cfg = self.config.get("lane_tracking", {})
+            if track_cfg.get("enabled", False):
+                from src.lane_tracking import PointLaneTracker  # noqa: PLC0415
+                self._lane_tracker = PointLaneTracker(track_cfg)
+            else:
+                self._lane_tracker = False
+        return self._lane_tracker if self._lane_tracker is not False else None
+
     def _detect_lanes(self, frame: Frame) -> Any:
-        """Run lane detection, returning a ``LaneDetectionResult`` or ``None``."""
+        """Run lane detection and tracking.
+
+        Returns a stabilised ``LaneDetectionResult`` (or ``None`` if disabled).
+        """
         det = self.lane_detector
         if det is None:
             return None
         try:
-            return det.detect(frame.image)
+            raw = det.detect(frame.image)
         except FileNotFoundError:
             return None
+
+        tracker = self.lane_tracker
+        if tracker is not None:
+            h, w = frame.image.shape[:2]
+            raw = tracker.process(raw, img_h=h, img_w=w)
+
+        return raw
 
     def _detect_signs(self, frame: Frame) -> list[Any]:
         """Run sign detection with optional frame skipping."""

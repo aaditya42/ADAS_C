@@ -37,6 +37,19 @@ def main() -> None:
     source = pipeline.frame_source
     window_name = "Perception"
 
+    vis_config = config.get("visualization", {})
+    save_video = vis_config.get("save_video", False)
+    video_writer = None
+    if save_video:
+        output_path = Path(vis_config["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        codec = vis_config.get("codec", "mp4v")
+        fourcc = cv2.VideoWriter_fourcc(*codec)
+        video_writer = cv2.VideoWriter(
+            str(output_path), fourcc, source.fps,
+            (source.width, source.height),
+        )
+
     frame_count = 0
     fps_timer = time.perf_counter()
 
@@ -64,6 +77,9 @@ def main() -> None:
             if config.get("visualization", {}).get("display", True):
                 display = pipeline.render(result)
 
+                if video_writer is not None:
+                    video_writer.write(display)
+
                 cv2.imshow(window_name, display)
                 key = cv2.waitKey(1) & 0xFF
 
@@ -90,6 +106,9 @@ def main() -> None:
                 if key == ord("f"):
                     pipeline.renderer.toggle("fps")
                     logger.info("Toggled FPS layer")
+
+    if video_writer is not None:
+        video_writer.release()
 
     cv2.destroyWindow(window_name)
     logger.info("Exited after processing %d frames", frame_count)
