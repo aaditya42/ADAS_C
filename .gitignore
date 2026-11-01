@@ -39,7 +39,7 @@ dist/
 *.egg-info/
 
 # Models
-weights/
+# weights/
 models/
 checkpoints/
 *.pt

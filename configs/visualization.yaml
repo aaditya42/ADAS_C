@@ -1,0 +1,55 @@
+# Visualisation Configuration
+# =============================================================================
+# Controls both core layers (depth, lane, risk, etc.) and the optional
+# pose-keypoint / behavior-label overlay overlays.
+# =============================================================================
+
+enabled: true
+
+layers:
+  - depth
+  - lane
+  - perceived
+  - risk
+  - sign
+  - hud
+  - fps
+
+perceived:
+  show_distance: true
+  show_speed: true
+  show_ttc: true
+
+depth:
+  alpha: 0.35
+  colormap: MAGMA
+
+# --- Pose overlay (keypoints + skeleton) -------------------------------------
+pose_overlay:
+  enabled: true
+  keypoint_radius: 4
+  edge_thickness: 2
+  high_conf_threshold: 0.5
+  high_conf_color: [0, 255, 0]          # BGR – bright green
+  low_conf_color: [0, 100, 0]            # BGR – dark green
+  human_edge_color: [255, 255, 0]        # BGR – cyan
+  animal_edge_color: [255, 0, 255]        # BGR – magenta
+
+# --- Behavior overlay (label badges) -----------------------------------------
+behavior_overlay:
+  enabled: true
+  font_scale: 0.4
+  font_thickness: 1
+  offset_x: -140
+  offset_y: -10
+  # Per-label colour overrides (entity.label → BGR triple).
+  # Unlisted labels fall back to the built-in defaults.
+  label_colors:
+    human.human_fallen: [0, 0, 200]
+    human.human_crossing_road: [0, 165, 255]
+    animal.animal_crossing_road: [0, 165, 255]
+
+display: true
+save_video: true
+output_path: ./data/output/result.mp4
+codec: mp4v

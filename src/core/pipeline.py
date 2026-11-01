@@ -38,6 +38,8 @@ class PerceptionPipeline:
         self._last_signs_frame_id: int = -1
         self._scene_builder: Any = None
         self._renderer: Any = None
+        self._pose_subsystem: Any = None
+        self._behavior_subsystem: Any = None
 
         # Eager init for sign detector (controlled by config)
         signs_cfg = config.get("signs", {})
@@ -54,6 +56,24 @@ class PerceptionPipeline:
             from src.scene.factory import build_scene_builder  # noqa: PLC0415
 
             self._scene_builder = build_scene_builder(config)
+
+        # Eager init for pose subsystem (controlled by config)
+        pose_cfg = config.get("pose", {})
+        if pose_cfg.get("enabled", False):
+            from src.pose.subsystem import PoseSubsystem  # noqa: PLC0415
+
+            self._pose_subsystem = PoseSubsystem(config)
+        else:
+            self._pose_subsystem = None
+
+        # Eager init for behaviour subsystem (controlled by config)
+        behavior_cfg = config.get("behavior", {})
+        if behavior_cfg.get("enabled", False):
+            from src.behavior.subsystem import BehaviorSubsystem  # noqa: PLC0415
+
+            self._behavior_subsystem = BehaviorSubsystem(config)
+        else:
+            self._behavior_subsystem = None
 
     @property
     def renderer(self) -> Any:
@@ -184,6 +204,7 @@ class PerceptionPipeline:
         """
         detections: list[Detection] = self.detector.detect(frame)
         tracked: list[TrackedObject] = self.tracker.update(detections, frame)
+        pose_frame = self._estimate_pose(frame, detections, tracked)
         depth_map: np.ndarray = self._estimate_depth(frame)
         perceived: list[PerceivedObject] = self.fusion.fuse(tracked, depth_map)
         perceived = self._enrich_distances(perceived, depth_map, frame)
@@ -193,13 +214,18 @@ class PerceptionPipeline:
         lane_info = self._detect_lanes(frame)
         signs = self._detect_signs(frame)
         scene_context = self._build_scene(perceived, lane_info, signs, frame)
-        risk_objects = self._evaluate_risk(perceived, motion, ttc, lane_info, scene_context)
+        behavior_frame = self._run_behavior(pose_frame, motion, lane_info, frame)
+        risk_objects = self._evaluate_risk(
+            perceived, motion, ttc, lane_info, scene_context,
+            behavior_frame=behavior_frame,
+        )
         alerts = self._process_warnings(risk_objects, frame)
 
         result: dict[str, Any] = {
             "frame": frame,
             "detections": detections,
             "tracked": tracked,
+            "pose": pose_frame,
             "depth_map": depth_map,
             "perceived": perceived,
             "history": self.history,
@@ -210,6 +236,7 @@ class PerceptionPipeline:
             "lane": lane_info,
             "signs": signs,
             "scene": scene_context,
+            "behavior": behavior_frame,
         }
         return result
 
@@ -338,6 +365,30 @@ class PerceptionPipeline:
             return None
         return self._scene_builder.build(perceived, lane_info, signs, frame)
 
+    def _run_behavior(
+        self,
+        pose_frame: Any,
+        motion: dict[int, Any],
+        lane_info: Any,
+        frame: Frame,
+    ) -> Any:
+        """Run behaviour classification via the BehaviourSubsystem (if enabled).
+
+        Returns a ``BehaviorFrame`` or ``None`` when behaviour is disabled.
+        """
+        if self._behavior_subsystem is None:
+            return None
+        p_mgr = getattr(self._pose_subsystem, "history", None) if self._pose_subsystem is not None else None
+        return self._behavior_subsystem.process(
+            pose_frame=pose_frame,
+            pose_history_mgr=p_mgr,
+            track_history_mgr=self.history,
+            motion_frame=motion,
+            lane_info=lane_info,
+            frame_id=frame.frame_id,
+            timestamp=frame.timestamp,
+        )
+
     def _evaluate_risk(
         self,
         perceived: list[PerceivedObject],
@@ -345,10 +396,14 @@ class PerceptionPipeline:
         ttc: dict[int, float | None],
         lane_info: Any = None,
         scene_context: Any = None,
+        **kwargs: Any,
     ) -> list[Any]:
         """Run risk assessment on all perceived objects."""
         return self.risk_engine.evaluate(
-            perceived, motion, ttc, lane_info=lane_info, scene_context=scene_context
+            perceived, motion, ttc,
+            lane_info=lane_info,
+            scene_context=scene_context,
+            **kwargs,
         )
 
     def _process_warnings(
@@ -376,6 +431,26 @@ class PerceptionPipeline:
         self._depth_cache = self.depth_estimator.estimate(frame)
         self._last_depth_frame_id = frame.frame_id
         return self._depth_cache
+
+    def _estimate_pose(
+        self,
+        frame: Frame,
+        detections: list[Detection],
+        tracked: list[TrackedObject],
+    ) -> Any:
+        """Run pose estimation via the PoseSubsystem (if enabled).
+
+        Returns a ``PoseFrame`` or ``None`` when pose is disabled.
+        """
+        if self._pose_subsystem is None:
+            return None
+        return self._pose_subsystem.process(
+            frame=frame.image,
+            detections=detections,
+            tracks=tracked,
+            frame_id=frame.frame_id,
+            timestamp=frame.timestamp,
+        )
 
     def render(self, pipeline_output: dict) -> np.ndarray:
         """Render all visualisation layers onto the raw frame.

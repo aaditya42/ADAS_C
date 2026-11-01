@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Optional, Sequence
 
+from src.risk.contributors import RiskAdjustment, RiskContext, RiskContributor
 from src.schemas import PerceivedObject
 from src.schemas.risk_object import RiskLevel, RiskObject, WarningLevel
 from src.risk.base import BaseRiskEngine
@@ -64,6 +65,8 @@ class ScoreBasedRiskEngine(BaseRiskEngine):
         ttc_critical_s: float = 1.0,
         ttc_safe_s: float = 6.0,
         speed_critical_mps: float = 15.0,
+        *,
+        contributors: Optional[Sequence[RiskContributor]] = None,
     ) -> None:
         self._w = weights or {
             "distance": 0.4,
@@ -77,6 +80,7 @@ class ScoreBasedRiskEngine(BaseRiskEngine):
         self._ttc_crit = ttc_critical_s
         self._ttc_safe = ttc_safe_s
         self._speed_crit = speed_critical_mps
+        self._contributors: Sequence[RiskContributor] = list(contributors) if contributors else []
 
     # ------------------------------------------------------------------ #
     #  Per-contributor scoring (each returns 0..100)
@@ -232,6 +236,8 @@ class ScoreBasedRiskEngine(BaseRiskEngine):
         ttc: dict[int, float | None],
         lane_info: Any = None,
         scene_context: Any = None,
+        *,
+        behavior_frame: Any = None,
     ) -> list[RiskObject]:
         active_contributors = [
             k for k, v in self._w.items() if k in ("distance", "ttc", "speed") or v > 0
@@ -277,5 +283,39 @@ class ScoreBasedRiskEngine(BaseRiskEngine):
                 risk_score=round(score, 1),
                 warning_level=warning,
             ))
+
+        if self._contributors:
+            ctx = RiskContext(
+                perceived=perceived,
+                motion=motion,
+                ttc=ttc,
+                lane_info=lane_info,
+                scene_context=scene_context,
+                behavior_frame=behavior_frame,
+            )
+            all_adjustments: list[RiskAdjustment] = []
+            for contrib in self._contributors:
+                all_adjustments.extend(contrib.contribute(ctx))
+
+            if all_adjustments:
+                score_map: dict[int, float] = {
+                    r.track_id: r.risk_score for r in results
+                }
+                for adj in all_adjustments:
+                    if adj.track_id in score_map:
+                        score_map[adj.track_id] = max(
+                            0.0, min(100.0, score_map[adj.track_id] + adj.delta_score)
+                        )
+                results = [
+                    RiskObject(
+                        track_id=r.track_id,
+                        risk_level=self._level_from_score(score_map[r.track_id]),
+                        risk_score=round(score_map[r.track_id], 1),
+                        warning_level=self._warning_from_risk(
+                            self._level_from_score(score_map[r.track_id])
+                        ),
+                    )
+                    for r in results
+                ]
 
         return results

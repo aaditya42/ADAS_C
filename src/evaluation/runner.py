@@ -27,6 +27,8 @@ from src.config.loader import load_config
 from src.core.pipeline import PerceptionPipeline
 from src.evaluation.detection_metrics import DetectionEvaluator
 from src.evaluation.depth_metrics import DepthEvaluator
+from src.evaluation.evaluators.behavior_evaluator import BehaviorEvaluator
+from src.evaluation.evaluators.pose_evaluator import PoseEvaluator
 from src.evaluation.profiler import PipelineProfiler
 from src.evaluation.system_metrics import SystemEvaluator
 from src.evaluation.tracking_metrics import TrackingEvaluator
@@ -55,6 +57,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--gt-depth", default=None,
         help="Ground-truth depth maps (.npz with frame keys or directory of .npy)",
+    )
+    parser.add_argument(
+        "--gt-pose", default=None,
+        help="Ground-truth pose keypoints (COCO-keypoints / AP-10K JSON format)",
+    )
+    parser.add_argument(
+        "--gt-behavior", default=None,
+        help="Ground-truth behavior labels (behavior JSON schema)",
     )
     parser.add_argument(
         "--report-out", default="reports/eval.json",
@@ -92,12 +102,16 @@ def _load_gt_depth(gt_path: str, num_frames: int) -> list[np.ndarray] | None:
     return None
 
 
-def _load_gt_detections(gt_path: str) -> dict[str, Any] | None:
+def _load_gt_json(gt_path: str, label: str = "JSON") -> dict[str, Any] | None:
     if not os.path.exists(gt_path):
-        print(f"[eval] GT detections path not found: {gt_path}")
+        print(f"[eval] GT {label} path not found: {gt_path}")
         return None
     with open(gt_path, "r") as f:
         return json.load(f)
+
+
+def _load_gt_detections(gt_path: str) -> dict[str, Any] | None:
+    return _load_gt_json(gt_path, "detections")
 
 
 def _write_report(
@@ -215,6 +229,34 @@ def _write_markdown(results: dict[str, Any], path: str) -> None:
             lines.append(f"| {k} | {v} |")
         lines.append("")
 
+    if "pose" in results:
+        p = results["pose"]
+        lines.append("## Pose Estimation Metrics")
+        lines.append("")
+        lines.append(f"| Metric | Value |")
+        lines.append(f"|--------|-------|")
+        lines.append(f"| Human PCK@0.05 | {p.get('human_pck_at_0.05', 'N/A')} |")
+        lines.append(f"| Human OKS | {p.get('human_oks', 'N/A')} |")
+        lines.append(f"| Human matched instances | {p.get('human_pck_at_0.05_count', 'N/A')} |")
+        lines.append(f"| Human unmatched GT | {p.get('human_unmatched_gt', 'N/A')} |")
+        lines.append(f"| Animal PCK@0.05 | {p.get('animal_pck_at_0.05', 'N/A')} |")
+        lines.append(f"| Animal matched instances | {p.get('animal_pck_at_0.05_count', 'N/A')} |")
+        lines.append(f"| Animal unmatched GT | {p.get('animal_unmatched_gt', 'N/A')} |")
+        lines.append("")
+
+    if "behavior" in results:
+        b = results["behavior"]
+        lines.append("## Behavior Classification Metrics")
+        lines.append("")
+        lines.append(f"| Metric | Value |")
+        lines.append(f"|--------|-------|")
+        lines.append(f"| Macro Precision | {b.get('label_metrics', {}).get('macro_precision', 'N/A')} |")
+        lines.append(f"| Macro Recall | {b.get('label_metrics', {}).get('macro_recall', 'N/A')} |")
+        lines.append(f"| Macro F1 | {b.get('label_metrics', {}).get('macro_f1', 'N/A')} |")
+        lines.append(f"| Brier Score | {b.get('brier_score', 'N/A')} |")
+        lines.append(f"| Total matched | {b.get('total_matched', 'N/A')} |")
+        lines.append("")
+
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -317,6 +359,34 @@ def main() -> None:
             print(f"  RMSE = {gt_res.get('RMSE', 'N/A')}")
 
     results["depth"] = depth_results
+
+    eval_cfg = config.get("evaluation", {})
+    all_pose: list[Any] = [o.get("pose") for o in all_outputs]
+    all_behavior: list[Any] = [o.get("behavior") for o in all_outputs]
+
+    if args.gt_pose:
+        print(f"[eval] Running pose evaluation ...")
+        gt_pose = _load_gt_json(args.gt_pose, "pose")
+        if gt_pose is not None:
+            if eval_cfg.get("pose_evaluation", {}).get("enabled", True):
+                p_thr = eval_cfg.get("pose_evaluation", {}).get("match_iou_threshold", 0.5)
+                pose_eval = PoseEvaluator(match_iou_threshold=float(p_thr))
+                results["pose"] = pose_eval.evaluate(all_pose, gt_pose)
+                print(f"  human PCK@0.05 = {results['pose'].get('human_pck_at_0.05', 'N/A')}")
+                print(f"  human OKS = {results['pose'].get('human_oks', 'N/A')}")
+                print(f"  animal PCK@0.05 = {results['pose'].get('animal_pck_at_0.05', 'N/A')}")
+
+    if args.gt_behavior:
+        print(f"[eval] Running behavior evaluation ...")
+        gt_behavior = _load_gt_json(args.gt_behavior, "behavior")
+        if gt_behavior is not None:
+            if eval_cfg.get("behavior_evaluation", {}).get("enabled", True):
+                beh_eval = BehaviorEvaluator()
+                results["behavior"] = beh_eval.evaluate(all_behavior, gt_behavior)
+                mf1 = results["behavior"].get("label_metrics", {}).get("macro_f1", "N/A")
+                bs = results["behavior"].get("brier_score", "N/A")
+                print(f"  macro F1 = {mf1}")
+                print(f"  Brier score = {bs}")
 
     _write_report(results, args.report_out)
     print(f"[eval] Done.")

@@ -1,0 +1,6 @@
+# Pipeline-level behaviour classification configuration.
+# This is intended to be merged into the main pipeline configuration.
+# =============================================================================
+
+behavior:
+  enabled: false  # off by default; set true to enable behaviour classification

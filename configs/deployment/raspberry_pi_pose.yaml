@@ -1,0 +1,212 @@
+# Raspberry Pi Deployment Configuration — Pose + Behaviour
+# =============================================================================
+# ONNX-optimised config for Raspberry Pi 4/5 with pose estimation and
+# behaviour classification enabled.
+#
+# Execution providers:
+#   - CPUExecutionProvider (primary, always available)
+#   - NNAPIExecutionProvider (optional, requires Android NN API layer)
+#   - XNNPACKExecutionProvider (optional, accelerations on ARM)
+#
+# To use:  python main.py --config configs/deployment/raspberry_pi_pose.yaml
+# =============================================================================
+
+video:
+  type: picamera
+  width: 640
+  height: 480
+  framerate: 30
+
+detector:
+  type: yolo_onnx
+  model_path: weights/yolo11n.onnx
+  conf_threshold: 0.3
+  iou_threshold: 0.45
+  providers: ["CPUExecutionProvider"]
+  class_names_path: configs/coco_classes.txt
+
+tracker:
+  type: bytetrack
+  track_activation_threshold: 0.25
+  lost_track_buffer: 15
+  minimum_matching_threshold: 0.8
+  frame_rate: 15
+  minimum_consecutive_frames: 1
+
+depth:
+  enabled: false
+
+fusion:
+  sampling: median_center
+  center_box_ratio: 0.5
+  min_valid_depth_pixels: 10
+
+distance:
+  type: relative
+
+memory:
+  max_history_per_track: 30
+  stale_after_frames: 30
+
+motion:
+  enabled: true
+  min_samples: 5
+  smoothing: ema
+  ema_alpha: 0.4
+  stationary_threshold_mps: 0.3
+
+ttc:
+  type: simple
+  max_ttc_seconds: 30.0
+  min_speed_mps: 0.2
+
+risk:
+  type: score_based
+  weights:
+    distance: 0.4
+    ttc: 0.5
+    speed: 0.1
+    lane: 0.1
+    scene: 0.15
+  thresholds:
+    dist_critical_m: 5.0
+    dist_safe_m: 50.0
+    ttc_critical_s: 1.0
+    ttc_safe_s: 6.0
+    speed_critical_mps: 15.0
+
+warning:
+  min_level: MEDIUM
+  cooldown_sec: 2.0
+  hysteresis_frames: 3
+  channels:
+    - console
+
+lane:
+  enabled: true
+  model_type: clrnet
+  model_path: weights/clrnet.onnx
+  device: cpu
+  input_width: 800
+  input_height: 320
+  conf_threshold: 0.5
+  lane_confidence_threshold: 0.5
+  max_lanes: 4
+  temporal_smoothing: false
+  smoothing_window: 3
+
+signs:
+  enabled: false
+
+scene:
+  enabled: true
+  sign_latch_frames: 30
+
+# --- Pose Estimation ---------------------------------------------------------
+pose:
+  enabled: true
+
+  human:
+    estimator: yolov8_pose
+    model_path: weights/yolov8n-pose.onnx
+    device: cpu
+    input_size: [320, 320]
+    confidence_threshold: 0.5
+
+  animal:
+    estimator: null
+    model_path: null
+    device: cpu
+    input_size: [256, 256]
+    confidence_threshold: 0.5
+    supported_species: []
+
+  max_persons: 3
+  max_animals: 2
+
+# --- Behaviour Classification ------------------------------------------------
+behavior:
+  enabled: true
+
+  human:
+    classifier: rule_based
+    speed:
+      walking_min_mps: 0.3
+      running_min_mps: 1.5
+    fallen:
+      torso_angle_threshold_deg: 45.0
+    distracted:
+      head_motion_angle_threshold_deg: 60.0
+    road:
+      crossing_probability_high: 0.7
+      approaching_distance_px: 100.0
+      approaching_angle_threshold_deg: 45.0
+      leaving_distance_px: 80.0
+
+  animal:
+    classifier: rule_based
+    speed:
+      walking_min_mps: 0.2
+      running_min_mps: 1.2
+    lying:
+      torso_height_threshold: 0.3
+      spine_angle_threshold_deg: 30.0
+    grazing:
+      head_down_angle_threshold_deg: 45.0
+      max_speed_mps: 0.3
+    road:
+      crossing_probability_high: 0.7
+      approaching_distance_px: 120.0
+      approaching_angle_threshold_deg: 45.0
+
+  crossing_probability:
+    decay_distance_px: 50.0
+    heading_weight: 0.3
+    speed_weight: 0.2
+
+  risk_contribution:
+    fallen_boost: 30.0
+    crossing_boost: 25.0
+    approaching_boost: 20.0
+    distracted_approaching_boost: 15.0
+    animal_crossing_boost: 25.0
+    animal_approaching_boost: 20.0
+    crossing_prob_threshold: 0.5
+    ttc_boost_scale: 0.3
+    max_boost: 50.0
+
+# --- Visualisation -----------------------------------------------------------
+visualization:
+  enabled: true
+  layers:
+    - perceived
+    - risk
+    - lane
+    - hud
+    - fps
+  perceived:
+    show_distance: true
+    show_speed: true
+    show_ttc: true
+  pose_overlay:
+    enabled: true
+    keypoint_radius: 3
+    edge_thickness: 1
+    high_conf_threshold: 0.5
+    high_conf_color: [0, 255, 0]
+    low_conf_color: [0, 100, 0]
+    human_edge_color: [255, 255, 0]
+    animal_edge_color: [255, 0, 255]
+  behavior_overlay:
+    enabled: true
+    font_scale: 0.35
+    font_thickness: 1
+    offset_x: -120
+    offset_y: -8
+    label_colors:
+      human.human_fallen: [0, 0, 200]
+      human.human_crossing_road: [0, 165, 255]
+      animal.animal_crossing_road: [0, 165, 255]
+  display: true
+  save_video: false
+  output_path: ""

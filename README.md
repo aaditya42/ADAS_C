@@ -60,4 +60,13 @@ Traffic sign detection is **disabled by default**. To enable it:
 Class names from the model are mapped to `SignType` using `DEFAULT_MAP`
 in `src/signs/yolo_sign_detector.py`.  A numeric suffix (e.g.
 `"speed_limit_50"`) is parsed as the sign's `value` field.
+
+## Pose Estimation & Behaviour Classification
+
+Human and animal pose estimation (YOLOv8-Pose, RTMPose, AP-10K HRNet) and
+rule-based behaviour classification (fallen, distracted, crossing road,
+grazing, lying, etc.) are integrated as pipeline stages.  The
+[pose/behaviour subsystem docs](docs/pose_behavior_subsystem.md) cover
+architecture, configuration reference, extension guides, benchmark
+methodology, and known limitations.
 ```

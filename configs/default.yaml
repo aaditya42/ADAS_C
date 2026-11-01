@@ -7,7 +7,7 @@
 
 video:
   type: file              # file | webcam
-  path: ./data/test1.mp4
+  path: ./data/test2.mp4
   loop: false
   webcam_device: 0
   width: 1280
@@ -135,6 +135,24 @@ signs:
 scene:
   enabled: true
   sign_latch_frames: 30
+
+pose:
+  enabled: true
+  human:
+    estimator: yolov8_pose
+    model_path: ./weights/yolo11n-pose.pt
+    device: cuda:0
+    input_size: [640, 640]
+    confidence_threshold: 0.5
+  animal:
+    estimator: "null"
+    model_path: null
+    device: cuda:0
+    input_size: [640, 640]
+    confidence_threshold: 0.5
+    supported_species: []
+  max_persons: 10
+  max_animals: 10
 
 visualization:
   enabled: true

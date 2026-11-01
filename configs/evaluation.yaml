@@ -1,0 +1,15 @@
+evaluation:
+  output_dir: ./reports
+  detection:
+    gt_path: null
+    iou_thresholds: [0.5, 0.75]
+  tracking:
+    gt_path: null
+  depth:
+    mode: temporal_consistency
+    gt_path: null
+  pose_evaluation:
+    enabled: true
+    match_iou_threshold: 0.5
+  behavior_evaluation:
+    enabled: true
