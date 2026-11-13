@@ -24,10 +24,12 @@ class Renderer:
         return list(self._layers)
 
     def toggle(self, layer_name: str) -> bool:
-        """Toggle a layer by short name (e.g. ``"depth"``, ``"lane"``).
+        """Toggle a layer by short name (e.g. ``"depth"``, ``"lane"``, ``"warning"``).
 
         Returns the new enabled state, or ``False`` if the layer is unknown.
         """
+        if layer_name in ("warning_hud", "warnings"):
+            layer_name = "warning"
         layer = self._name_map.get(layer_name)
         if layer is None:
             return False

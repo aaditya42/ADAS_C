@@ -1,0 +1,15 @@
+### Table: Indicator Validity Matrix
+
+| Indicator | Unit | Derivation | Calibrated_Metric_Mode | Relative_Depth_Mode | Receding_Or_Stationary | Literature_Grounding |
+| --- | --- | --- | --- | --- | --- | --- |
+| Time-to-Collision (TTC) | seconds | Looming rate / Distance differentiation | VALID_METRIC | VALID_PROXY | UNAVAILABLE | Hayward (1972), SSAM (2008) |
+| Post-Encroachment Time (PET) | seconds | Conflict polygon entry/exit time delta | UNAVAILABLE (No ground camera) | UNAVAILABLE (No ground camera) | UNAVAILABLE | FHWA SSAM (2008), Option B (2025) |
+| Deceleration Rate to Avoid Collision (DRAC) | m/s² | (v_f - v_l)² / (2 * d) | VALID_METRIC | UNAVAILABLE (Cannot compute m/s²) | ZERO_CLOSING_SPEED | Almqvist (1991), ADRS (2025) |
+| Relative Speed Difference (Spd) | m/s | Temporal track centroid differentiation | VALID_METRIC | VALID_PROXY (Pixels/sec scaled) | VALID (Negative values) | Option A (2025) |
+| Acceleration Noise (AN) | m/s² | Standard deviation of rolling acceleration | VALID_METRIC | VALID_PROXY (Smoothed jitter) | VALID | Herman et al. (1959), Option A (2025) |
+| Lateral Deviation (LD) | meters / ratio | Distance to ego-lane centerline | VALID_METRIC | VALID_PROXY (Normalized lane width) | VALID | Option A (2025) |
+| Corridor Overlap (Encroach) | ratio [0, 1] | Bbox intersection with lane polygon | VALID_METRIC | VALID_METRIC (2D image plane exact) | VALID | Euro NCAP Cut-In Protocol |
+| Combined Conflict Velocity (V_comb) | m/s | Vector sum of target and ego velocities | VALID_METRIC | UNAVAILABLE (No ego CAN/IMU) | VALID | Option B (2025) |
+| Optical Looming Expansion | 1/s | 1/A * dA/dt of bounding box area | VALID_PROXY | VALID_PROXY | UNAVAILABLE (Shrinking/Negative) | Lee (1976), Visual Looming |
+| Right-of-Way Violation (ROW) | binary [0, 1] | Intersection priority rule checking | UNAVAILABLE (No HD map/traffic light) | UNAVAILABLE | UNAVAILABLE | Option B (2025) |
+| Unpredictable Behavior (UB) | binary [0, 1] | Erratic heading/lane changes | VALID_PROXY (Heuristic flag) | VALID_PROXY | VALID | Option B (2025) |

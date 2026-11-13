@@ -78,7 +78,14 @@ def _get_beep_func():
     """Return a ``beep(duration_ms)`` callable."""
     try:
         import winsound  # noqa: PLC0415
-        return lambda ms: winsound.Beep(AudioBeepChannel._BEEP_FREQ, ms)
+
+        def _win_beep(ms: int) -> None:
+            try:
+                winsound.Beep(AudioBeepChannel._BEEP_FREQ, ms)
+            except Exception:
+                pass
+
+        return _win_beep
     except ImportError:
         pass
 

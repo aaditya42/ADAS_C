@@ -1,0 +1,6 @@
+### Table: Full Video Execution Summary
+
+| Video | Resolution | Duration_s | FPS | Total_Frames | Processed_Frames | Total_Tracked_Objects | Total_Threat_Events | Peak_HIGH_Warnings | Peak_MED_Warnings | Peak_LOW_Warnings | Completed_Overtakings | Incomplete_Overtakings | Mean_Warning_Duration_s | Min_TTC_s | Avg_Processing_FPS |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| test1.mp4 | 1280x720 | 38.87 | 29.97 | 1165 | 1165 | 18 | 62 | 46 | 3 | 13 | 5 | 3 | 1.44 | 0.41 | 2.33 |
+| test2.mp4 | 1920x1080 | 51.85 | 29.97 | 1554 | 1554 | 24 | 74 | 51 | 7 | 16 | 1 | 7 | 1.62 | 0.38 | 1.85 |

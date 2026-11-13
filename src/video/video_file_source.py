@@ -38,13 +38,17 @@ class VideoFileSource(BaseFrameSource):
             raise RuntimeError(f"Failed to open video file: {self._path}")
 
         self._frame_id: int = 0
+        self._fps: float = float(self._cap.get(cv2.CAP_PROP_FPS))
+        self._total_frames: int = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self._width: int = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self._height: int = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self._logger.info(
             "Opened %s  [%d x %d, %.2f fps, %d frames]",
             self._path,
-            self.width,
-            self.height,
-            self.fps,
-            self.total_frames,
+            self._width,
+            self._height,
+            self._fps,
+            self._total_frames,
         )
 
     # ------------------------------------------------------------------ #
@@ -53,19 +57,19 @@ class VideoFileSource(BaseFrameSource):
 
     @property
     def fps(self) -> float:
-        return self._cap.get(cv2.CAP_PROP_FPS)
+        return self._fps
 
     @property
     def total_frames(self) -> int:
-        return int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        return self._total_frames
 
     @property
     def width(self) -> int:
-        return int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        return self._width
 
     @property
     def height(self) -> int:
-        return int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        return self._height
 
     # ------------------------------------------------------------------ #
     #  BaseFrameSource interface
@@ -84,11 +88,15 @@ class VideoFileSource(BaseFrameSource):
                 return None
 
         self._frame_id += 1
+        fps = self.fps if self.fps > 0 else 30.0
+        # For recorded video files, timestamp represents video playback time in seconds
+        timestamp = self._frame_id / fps
+
         # OpenCV reads BGR natively — keep as-is.
         return Frame(
             image=raw,
             frame_id=self._frame_id,
-            timestamp=time.time(),
+            timestamp=timestamp,
             source=self._path,
         )
 

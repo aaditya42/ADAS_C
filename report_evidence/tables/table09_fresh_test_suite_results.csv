@@ -1,0 +1,12 @@
+Test Suite File,Total Tests,Passed,Failed,Coverage / Functionality
+tests/test_threat_math_verification.py,6,6,0,"Option A & B published coefficients, hand-calculated vectors, SSAM thresholds, normalizer bounds"
+tests/test_threat_excel_reporting.py,2,2,0,"5-sheet Excel generation, cell formatting, non-overwriting timestamp protection"
+tests/test_threat_features.py,9,9,0,"Validity tagging, motion kinematics, looming rate, corridor overlap, ID reuse detection"
+tests/test_scenario_classification.py,8,8,0,"State machine transitions across rear-end, cut-in, pedestrian, cyclist conflicts"
+tests/test_threat_risk_models.py,10,10,0,"Option A/B gating, indicator absence rejection, SSAM gating, adapted rule fallback labeling"
+tests/test_threat_prioritization.py,5,5,0,"Primary threat selection, composite priority key ranking, rank-swap hysteresis"
+tests/test_direction_estimation.py,9,9,0,"Forward camera spatial sectors (Front, Front-Left, Front-Right, Left, Right)"
+tests/test_directional_warning_events.py,9,9,0,"Warning levels, confirmation filters, fast-track bypass, duplicate suppression, lifecycle transitions"
+tests/test_warning_hud.py,12,12,0,"Prominent primary banner, secondary threat stack, keyboard toggle 'W', background independence"
+Entire Remaining Repository Test Suite,779,778,1,"Pose, behavior, lane detection, tracking, overtaking, trajectory forecasting (1 fail: physical webcam 0)"
+TOTAL TEST SUITE,849,848,1,99.88% passing rate across entire repository; ZERO regressions in perception or reasoning

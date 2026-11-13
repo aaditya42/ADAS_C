@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from src.schemas.bbox import BoundingBox
 from src.schemas.behavior import BehaviorFrame, BehaviorLabel, BehaviorState
@@ -12,6 +12,13 @@ from src.schemas.risk_object import RiskLevel, RiskObject, WarningLevel
 from src.schemas.scene_context import SceneContext
 from src.schemas.tracked_object import TrackedObject
 from src.schemas.traffic_sign_info import SignType, TrafficSignInfo
+from src.schemas.trajectory import (
+    EvaluationStatus,
+    PredictionRecord,
+    TrajectoryPoint,
+    TrajectoryPrediction,
+    TrajectoryWaypointRecord,
+)
 
 __all__ = [
     "AnimalKeypointName",
@@ -22,6 +29,7 @@ __all__ = [
     "BoundingBox",
     "Detection",
     "Direction",
+    "EvaluationStatus",
     "Frame",
     "HumanKeypointName",
     "HumanPose",
@@ -30,12 +38,17 @@ __all__ = [
     "LaneLine",
     "PerceivedObject",
     "PoseFrame",
+    "PredictionRecord",
     "RelativeMotion",
     "RiskLevel",
     "RiskObject",
     "SceneContext",
-    "WarningLevel",
-    "TrackedObject",
     "SignType",
+    "TrackedObject",
     "TrafficSignInfo",
+    "TrajectoryPoint",
+    "TrajectoryPrediction",
+    "TrajectoryWaypointRecord",
+    "WarningLevel",
 ]
+

@@ -1,13 +1,6 @@
-# =============================================================================
-# ADAS Perception System — Default Configuration
-# =============================================================================
-# Each section corresponds to a future phase. Values are commented out or set
-# to safe defaults until the relevant phase is implemented.
-# =============================================================================
-
 video:
   type: file              # file | webcam
-  path: ./data/test2.mp4
+  path: ./data/test1.mp4
   loop: false
   webcam_device: 0
   width: 1280
@@ -154,6 +147,151 @@ pose:
   max_persons: 10
   max_animals: 10
 
+trajectory:
+  enabled: true
+  prediction:
+    horizon_seconds: 2.0
+    update_interval: 0.1
+    model: constant_acceleration
+    history_duration_seconds: 2.0
+    minimum_history_points: 10
+    process_noise_std: 1.0
+    measurement_noise_std: 2.0
+  tracking:
+    maximum_track_gap_seconds: 0.5
+    stale_track_timeout_seconds: 1.0
+  coordinates:
+    system: image
+    position_reference: bottom_center
+  evaluation:
+    enabled: true
+    match_tolerance_seconds: 0.05
+    max_records: 10000
+    success_threshold_pixels: 20.0
+  visualization:
+    enabled: true
+    show_predicted_path: true
+    show_predicted_endpoint: true
+    show_actual_endpoint: true
+    show_error_line: true
+    show_error_label: true
+  export:
+    enabled: true
+    format: excel
+    filename: NAYAN_Trajectory_Evaluation.xlsx
+    output_dir: ./reports
+    export_on_session_end: true
+  drac:
+    enabled: true
+    require_metric_units: true
+    minimum_gap_meters: 0.01
+    default_ego_speed_mps: null
+
+overtaking:
+  enabled: true
+  target_classes:
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - van
+  detection:
+    min_initial_observations: 3
+    scale_growth_start_threshold: 1.20
+    scale_growth_passing_threshold: 1.45
+    vertical_drop_ratio: 0.05
+    ahead_max_y_ratio: 0.65
+    passing_y_ratio: 0.55
+    exit_margin_pixels: 60.0
+    min_event_duration_seconds: 0.4
+    max_event_duration_seconds: 15.0
+    start_confirmation_duration: 0.25
+  tracking:
+    maximum_track_gap_seconds: 0.5
+    stale_timeout_seconds: 2.0
+    track_loss_grace_seconds: 0.4
+    maximum_active_events: 10
+    identity_reassociation_enabled: true
+    identity_reassociation_max_gap: 0.4
+    timestamp_fallback_enabled: true
+    fallback_fps: 30.0
+  visualization:
+    enabled: true
+    show_target_marker: true
+    show_elapsed_time: true
+    show_event_state: true
+    show_completion_notification: true
+    notification_duration: 2.5
+    maximum_displayed_events: 5
+    keyboard_toggle_enabled: true
+  export:
+    enabled: true
+    filename: Overtaking_Evaluation.xlsx
+    output_dir: ./reports
+    export_on_session_end: true
+
+threat_assessment:
+  enabled: true
+  stale_timeout_seconds: 2.0
+  id_reuse_gap_seconds: 2.0
+  features:
+    min_history_points: 3
+    history_window_seconds: 1.5
+  scenarios:
+    min_confirmation_frames: 3
+    track_loss_grace_seconds: 0.4
+    ttc_conflict_seconds: 4.5
+    ttc_potential_seconds: 8.0
+    drac_conflict_mps2: 2.0
+    closing_speed_threshold_mps: 0.3
+  normalization:
+    ttc_crit_s: 1.0
+    ttc_safe_s: 6.0
+    pet_crit_s: 1.0
+    pet_safe_s: 5.0
+    drac_max_mps2: 5.0
+    spd_var_max_mps: 3.0
+    an_max_mps2: 2.0
+    v_comb_max_mps: 15.0
+  risk_scoring:
+    enabled: true
+    allow_adapted_fallback: true
+    thresholds:
+      high_risk_score: 0.70
+      medium_risk_score: 0.40
+  prioritization:
+    enabled: true
+    max_ranked_threats: 10
+    rank_swap_hysteresis: 0.05
+  directional_warnings:
+    enabled: true
+    direction:
+      enabled: true
+      min_confirmation_frames: 2
+      lateral_band_ratio: 0.15
+      ego_corridor_tolerance_ratio: 0.10
+    thresholds:
+      high_risk_score: 0.70
+      medium_risk_score: 0.40
+      low_risk_score: 0.20
+      critical_ttc_override_s: 1.8
+      critical_ttc_fast_track_s: 1.5
+    timing:
+      confirmation_frames: 2
+      confirmation_duration_s: 0.15
+      escalation_frames: 2
+      deescalation_duration_s: 0.50
+      resolution_duration_s: 0.80
+      track_loss_grace_s: 0.40
+      stale_event_timeout_s: 2.0
+    export:
+      output_dir: ./reports
+      filename: Threat_Assessment_Evaluation.xlsx
+      export_on_session_end: true
+
+
+
+
 visualization:
   enabled: true
   layers:
@@ -162,8 +300,35 @@ visualization:
     - perceived
     - risk
     - sign
+    - trajectory
+    - overtaking
+    - warning
     - hud
     - fps
+
+  warning:
+    enabled: true
+    show_primary_warning: true
+    show_secondary_warnings: true
+    max_secondary_warnings: 3
+    show_direction_indicator: true
+    highlight_threat_object: true
+    show_ttc: true
+    show_risk_score: false
+    show_track_id: true
+    show_scenario: true
+    show_reliability: true
+    neutral_status_indicator: true
+    toggle_notification_duration: 1.5
+
+  overtaking:
+    show_target_marker: true
+    show_elapsed_time: true
+    show_event_state: true
+    show_completion_notification: true
+    notification_duration: 2.5
+    maximum_displayed_events: 5
+
   perceived:
     show_distance: true
     show_speed: true

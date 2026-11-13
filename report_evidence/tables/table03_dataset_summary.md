@@ -1,0 +1,8 @@
+### Table: Dataset Summary
+
+| Dataset / Video | Resolution | FPS | Duration | Status | Key Driving Scenarios Present |
+| --- | --- | --- | --- | --- | --- |
+| data/test1.mp4 | 1280 x 720 | 29.97 | 38.87 s (1,165 frames) | USED (Primary Benchmark) | Lead vehicle braking, multi-lane overtaking, highway lane lines, trucks, cars, cut-in events |
+| data/test2.mp4 | 1920 x 1080 | 29.97 | 51.85 s (1,554 frames) | USED (Secondary Evaluation) | Dense urban traffic, motorcycles, multi-object clutter, aborted overtaking, wide corridor encroachment |
+| CULane Dataset | 1640 x 590 | 30.00 | Benchmark dataset | INVESTIGATED (Pretrained backbone) | Used to pretrain the CULane ResNet-18 lane backbone weights (culane_r18.pth) |
+| KITTI / NuScenes | Various | 10-20 | Research datasets | INVESTIGATED (Academic reference) | Reference datasets for published Option A (ADRS) and Option B surrogate safety calibration |

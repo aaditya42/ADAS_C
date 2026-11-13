@@ -1,0 +1,64 @@
+# Behavior Classification — Default Configuration
+# =============================================================================
+# Rule-based classifiers use pose history + track motion + lane context
+# to determine the semantic behaviour of tracked humans and animals.
+# =============================================================================
+
+enabled: false
+
+human:
+  classifier: rule_based           # rule_based | null (future: ml_model)
+
+  speed:
+    walking_min_mps: 0.3            # m/s  below → STANDING
+    running_min_mps: 1.5            # m/s  at or above → RUNNING
+
+  fallen:
+    torso_angle_threshold_deg: 45.0 # torso deviation from vertical → FALLEN
+
+  distracted:
+    head_motion_angle_threshold_deg: 60.0  # head vs. motion direction diff
+
+  road:
+    crossing_probability_high: 0.7         # above → CROSSING_ROAD
+    approaching_distance_px: 100.0         # max distance to consider approach
+    approaching_angle_threshold_deg: 45.0  # heading angle must be within this
+    leaving_distance_px: 80.0              # max distance to consider leaving
+
+animal:
+  classifier: rule_based           # rule_based | null (future: ml_model)
+
+  speed:
+    walking_min_mps: 0.2
+    running_min_mps: 1.2
+
+  lying:
+    torso_height_threshold: 0.3    # fraction of bbox height → LYING
+    spine_angle_threshold_deg: 30.0
+
+  grazing:
+    head_down_angle_threshold_deg: 45.0  # nose below neck
+    max_speed_mps: 0.3
+
+  road:
+    crossing_probability_high: 0.7
+    approaching_distance_px: 120.0
+    approaching_angle_threshold_deg: 45.0
+
+crossing_probability:
+  decay_distance_px: 50.0   # exponential decay constant for dist-to-lane
+  heading_weight: 0.3       # contribution of heading direction
+  speed_weight: 0.2         # contribution of speed toward road
+
+# Risk contribution weights — used by BehaviorRiskContributor.
+# These are additive adjustments to the risk engine's base score.
+risk_contribution:
+  fallen_boost: 30.0                # score added for FALLEN humans
+  crossing_boost: 25.0              # score added for road-crossing (human)
+  approaching_boost: 20.0           # score added for approaching road (human)
+  distracted_approaching_boost: 15.0  # extra when distracted + approaching
+  animal_crossing_boost: 25.0       # score added for animal crossing road
+  animal_approaching_boost: 20.0    # score added for animal approaching road
+  crossing_prob_threshold: 0.5      # min crossing probability to apply boost
+  ttc_boost_scale: 0.3             # TTC scaling factor for boost
+  max_boost: 50.0                  # cap per-object total boost

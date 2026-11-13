@@ -238,6 +238,12 @@ class TestPiConfig:
 class TestMainCli:
     def test_default_config_arg(self) -> None:
         import sys  # noqa: PLC0415
+        from pathlib import Path
+        root_dir = str(Path(__file__).parent.parent)
+        if root_dir in sys.path:
+            sys.path.remove(root_dir)
+        sys.path.insert(0, root_dir)
         sys.argv = ["main.py"]
         import main  # noqa: PLC0415, F401
-        assert True
+        assert hasattr(main, "main")
+

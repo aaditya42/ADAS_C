@@ -10,10 +10,12 @@ from src.visualization.layers.detection_layer import DetectionLayer
 from src.visualization.layers.fps_layer import FPSLayer
 from src.visualization.layers.hud_layer import HUDLayer
 from src.visualization.layers.lane_layer import LaneLayer
+from src.visualization.layers.overtaking_layer import OvertakingLayer
 from src.visualization.layers.perceived_layer import PerceivedLayer
 from src.visualization.layers.risk_layer import RiskLayer
 from src.visualization.layers.sign_layer import SignLayer
 from src.visualization.layers.tracking_layer import TrackingLayer
+from src.visualization.layers.warning_layer import WarningLayer
 from src.visualization.overlays.behavior_overlay import BehaviorOverlay
 from src.visualization.overlays.pose_overlay import PoseOverlay
 from src.visualization.renderer import Renderer
@@ -28,6 +30,8 @@ _CORE_LAYER_BUILDERS: dict[str, tuple[type[BaseLayer], dict[str, Any]]] = {
     "risk": (RiskLayer, {}),
     "hud": (HUDLayer, {"alpha": 0.5}),
     "fps": (FPSLayer, {}),
+    "overtaking": (OvertakingLayer, {}),
+    "warning": (WarningLayer, {}),
 }
 
 

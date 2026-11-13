@@ -1,0 +1,358 @@
+video:
+  type: file              # file | webcam
+  path: ./data/test1.mp4
+  loop: false
+  webcam_device: 0
+  width: 1280
+  height: 720
+
+detector:
+  type: yolo
+  model_path: ./weights/best.pt
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  device: cuda:0              # cpu | cuda:0 | mps
+  class_filter:            # null = all classes
+    - person
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+
+tracker:
+  type: bytetrack
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.8
+  frame_rate: 30
+  minimum_consecutive_frames: 1
+
+depth:
+  enabled: true
+  type: depth_anything_v2
+  model_name: depth-anything/Depth-Anything-V2-Small-hf
+  device: cuda:0
+  input_size: 518
+  run_every_n_frames: 1    # for perf; 1 = every frame
+
+fusion:
+  sampling: median_center
+  center_box_ratio: 0.5
+  min_valid_depth_pixels: 10
+
+distance:
+  type: relative          # relative | calibrated
+  calibrated:
+    focal_length_px: 800
+    class_real_heights:
+      person: 1.7
+      car: 1.5
+      truck: 3.0
+      bus: 3.2
+      bicycle: 1.0
+      motorcycle: 1.2
+    fallback_height: 1.5
+
+memory:
+  max_history_per_track: 60
+  stale_after_frames: 60
+
+motion:
+  enabled: true
+  min_samples: 5
+  smoothing: ema
+  ema_alpha: 0.4
+  stationary_threshold_mps: 0.3
+
+ttc:
+  type: simple
+  max_ttc_seconds: 30.0
+  min_speed_mps: 0.2
+
+risk:
+  type: score_based
+  weights:
+    distance: 0.4
+    ttc: 0.5
+    speed: 0.1
+    lane: 0.1
+    scene: 0.15
+  thresholds:
+    dist_critical_m: 5.0
+    dist_safe_m: 50.0
+    ttc_critical_s: 1.0
+    ttc_safe_s: 6.0
+    speed_critical_mps: 15.0
+
+warning:
+  min_level: MEDIUM
+  cooldown_sec: 2.0
+  hysteresis_frames: 3
+  channels:
+    - console
+    - audio_beep
+
+lane:
+  enabled: true
+  model_type: clrnet
+  model_path: ./weights/culane_r18.pth
+  device: cuda:0
+  input_width: 800
+  input_height: 320
+  conf_threshold: 0.5
+  lane_confidence_threshold: 0.5
+  max_lanes: 4
+  temporal_smoothing: true
+  smoothing_window: 5
+
+lane_tracking:
+  enabled: false
+  smoothing_alpha: 0.25
+  max_missing_frames: 5
+  confidence_threshold: 0.5
+  min_points: 6
+  max_bottom_jump: 80.0
+  max_geometry_delta: 600.0
+  extend_above_pixels: 40
+  min_allowed_y: 350
+
+signs:
+  enabled: false              # off by default until model is supplied
+  type: yolo_signs
+  model_path: weights/traffic_signs_yolo.pt
+  conf_threshold: 0.35
+  device: cpu
+  run_every_n_frames: 2
+
+scene:
+  enabled: true
+  sign_latch_frames: 30
+
+pose:
+  enabled: true
+  human:
+    estimator: yolov8_pose
+    model_path: ./weights/yolo11n-pose.pt
+    device: cuda:0
+    input_size: [640, 640]
+    confidence_threshold: 0.5
+  animal:
+    estimator: "null"
+    model_path: null
+    device: cuda:0
+    input_size: [640, 640]
+    confidence_threshold: 0.5
+    supported_species: []
+  max_persons: 10
+  max_animals: 10
+
+trajectory:
+  enabled: true
+  prediction:
+    horizon_seconds: 2.0
+    update_interval: 0.1
+    model: constant_acceleration
+    history_duration_seconds: 2.0
+    minimum_history_points: 10
+    process_noise_std: 1.0
+    measurement_noise_std: 2.0
+  tracking:
+    maximum_track_gap_seconds: 0.5
+    stale_track_timeout_seconds: 1.0
+  coordinates:
+    system: image
+    position_reference: bottom_center
+  evaluation:
+    enabled: true
+    match_tolerance_seconds: 0.05
+    max_records: 10000
+    success_threshold_pixels: 20.0
+  visualization:
+    enabled: true
+    show_predicted_path: true
+    show_predicted_endpoint: true
+    show_actual_endpoint: true
+    show_error_line: true
+    show_error_label: true
+  export:
+    enabled: true
+    format: excel
+    filename: NAYAN_Trajectory_Evaluation.xlsx
+    output_dir: ./reports
+    export_on_session_end: true
+  drac:
+    enabled: true
+    require_metric_units: true
+    minimum_gap_meters: 0.01
+    default_ego_speed_mps: null
+
+overtaking:
+  enabled: true
+  target_classes:
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - van
+  detection:
+    min_initial_observations: 3
+    scale_growth_start_threshold: 1.20
+    scale_growth_passing_threshold: 1.45
+    vertical_drop_ratio: 0.05
+    ahead_max_y_ratio: 0.65
+    passing_y_ratio: 0.55
+    exit_margin_pixels: 60.0
+    min_event_duration_seconds: 0.4
+    max_event_duration_seconds: 15.0
+    start_confirmation_duration: 0.25
+  tracking:
+    maximum_track_gap_seconds: 0.5
+    stale_timeout_seconds: 2.0
+    track_loss_grace_seconds: 0.4
+    maximum_active_events: 10
+    identity_reassociation_enabled: true
+    identity_reassociation_max_gap: 0.4
+    timestamp_fallback_enabled: true
+    fallback_fps: 30.0
+  visualization:
+    enabled: true
+    show_target_marker: true
+    show_elapsed_time: true
+    show_event_state: true
+    show_completion_notification: true
+    notification_duration: 2.5
+    maximum_displayed_events: 5
+    keyboard_toggle_enabled: true
+  export:
+    enabled: true
+    filename: Overtaking_Evaluation.xlsx
+    output_dir: ./reports
+    export_on_session_end: true
+
+threat_assessment:
+  enabled: true
+  stale_timeout_seconds: 2.0
+  id_reuse_gap_seconds: 2.0
+  features:
+    min_history_points: 3
+    history_window_seconds: 1.5
+  scenarios:
+    min_confirmation_frames: 3
+    track_loss_grace_seconds: 0.4
+    ttc_conflict_seconds: 4.5
+    ttc_potential_seconds: 8.0
+    drac_conflict_mps2: 2.0
+    closing_speed_threshold_mps: 0.3
+  normalization:
+    ttc_crit_s: 1.0
+    ttc_safe_s: 6.0
+    pet_crit_s: 1.0
+    pet_safe_s: 5.0
+    drac_max_mps2: 5.0
+    spd_var_max_mps: 3.0
+    an_max_mps2: 2.0
+    v_comb_max_mps: 15.0
+  risk_scoring:
+    enabled: true
+    allow_adapted_fallback: true
+    thresholds:
+      high_risk_score: 0.70
+      medium_risk_score: 0.40
+  prioritization:
+    enabled: true
+    max_ranked_threats: 10
+    rank_swap_hysteresis: 0.05
+  directional_warnings:
+    enabled: true
+    direction:
+      enabled: true
+      min_confirmation_frames: 2
+      lateral_band_ratio: 0.15
+      ego_corridor_tolerance_ratio: 0.10
+    thresholds:
+      high_risk_score: 0.70
+      medium_risk_score: 0.40
+      low_risk_score: 0.20
+      critical_ttc_override_s: 1.8
+      critical_ttc_fast_track_s: 1.5
+    timing:
+      confirmation_frames: 2
+      confirmation_duration_s: 0.15
+      escalation_frames: 2
+      deescalation_duration_s: 0.50
+      resolution_duration_s: 0.80
+      track_loss_grace_s: 0.40
+      stale_event_timeout_s: 2.0
+    export:
+      output_dir: ./reports
+      filename: Threat_Assessment_Evaluation.xlsx
+      export_on_session_end: true
+
+
+
+
+visualization:
+  enabled: true
+  layers:
+    - depth
+    - lane
+    - perceived
+    - risk
+    - sign
+    - trajectory
+    - overtaking
+    - warning
+    - hud
+    - fps
+
+  warning:
+    enabled: true
+    show_primary_warning: true
+    show_secondary_warnings: true
+    max_secondary_warnings: 3
+    show_direction_indicator: true
+    highlight_threat_object: true
+    show_ttc: true
+    show_risk_score: false
+    show_track_id: true
+    show_scenario: true
+    show_reliability: true
+    neutral_status_indicator: true
+    toggle_notification_duration: 1.5
+
+  overtaking:
+    show_target_marker: true
+    show_elapsed_time: true
+    show_event_state: true
+    show_completion_notification: true
+    notification_duration: 2.5
+    maximum_displayed_events: 5
+
+  perceived:
+    show_distance: true
+    show_speed: true
+    show_ttc: true
+  depth:
+    alpha: 0.35
+    colormap: MAGMA
+  display: true
+  save_video: true
+  output_path: ./data/output/result.mp4
+  codec: mp4v
+
+evaluation:
+  output_dir: ./reports
+  detection:
+    gt_path: null
+    iou_thresholds: [0.5, 0.75]
+  tracking:
+    gt_path: null
+  depth:
+    mode: temporal_consistency   # temporal_consistency | gt
+    gt_path: null
+
+optimization:
+  enabled: false          # Phase 17
+  backend: onnx           # onnx | tensorrt
+  precision: fp16

@@ -12,6 +12,9 @@ from src.visualization.layers.perceived_layer import PerceivedLayer
 from src.visualization.layers.risk_layer import RiskLayer
 from src.visualization.layers.sign_layer import SignLayer
 from src.visualization.layers.tracking_layer import TrackingLayer
+from src.visualization.layers.overtaking_layer import OvertakingLayer
+from src.visualization.layers.trajectory_layer import TrajectoryLayer
+from src.visualization.layers.warning_layer import WarningLayer
 from src.visualization.renderer import Renderer
 
 
@@ -25,7 +28,44 @@ _LAYER_BUILDERS: dict[str, tuple[type[BaseLayer], dict[str, Any]]] = {
     "risk": (RiskLayer, {}),
     "hud": (HUDLayer, {"alpha": 0.5}),
     "fps": (FPSLayer, {}),
+    "trajectory": (
+        TrajectoryLayer,
+        {
+            "show_predicted_path": True,
+            "show_predicted_endpoint": True,
+            "show_actual_endpoint": True,
+            "show_error_line": True,
+            "show_error_label": True,
+        },
+    ),
+    "overtaking": (
+        OvertakingLayer,
+        {
+            "show_target_marker": True,
+            "show_elapsed_time": True,
+            "show_event_state": True,
+            "show_completion_notification": True,
+            "notification_duration": 2.5,
+            "maximum_displayed_events": 5,
+        },
+    ),
+    "warning": (
+        WarningLayer,
+        {
+            "show_primary_warning": True,
+            "show_secondary_warnings": True,
+            "max_secondary_warnings": 3,
+            "show_direction_indicator": True,
+            "highlight_threat_object": True,
+            "show_ttc": True,
+            "show_risk_score": False,
+            "show_track_id": True,
+            "show_scenario": True,
+            "show_reliability": True,
+        },
+    ),
 }
+
 
 
 def build_renderer(cfg: dict[str, Any]) -> Renderer:

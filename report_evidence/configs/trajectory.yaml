@@ -1,0 +1,51 @@
+# =============================================================================
+# ADAS Perception System — Trajectory Prediction Configuration
+# =============================================================================
+
+trajectory:
+  enabled: true
+
+  prediction:
+    horizon_seconds: 2.0
+    update_interval: 0.1
+    model: constant_acceleration
+    history_duration_seconds: 2.0
+    minimum_history_points: 10
+    process_noise_std: 1.0
+    measurement_noise_std: 2.0
+
+  tracking:
+    maximum_track_gap_seconds: 0.5
+    stale_track_timeout_seconds: 1.0
+
+  coordinates:
+    system: image
+    position_reference: bottom_center
+
+  evaluation:
+    enabled: true
+    match_tolerance_seconds: 0.05
+    max_records: 10000
+    success_threshold_pixels: 20.0
+
+  visualization:
+    enabled: true
+    show_predicted_path: true
+    show_predicted_endpoint: true
+    show_actual_endpoint: true
+    show_error_line: true
+    show_error_label: true
+
+  export:
+    enabled: true
+    format: excel
+    filename: NAYAN_Trajectory_Evaluation.xlsx
+    output_dir: ./reports
+    export_on_session_end: true
+
+  drac:
+    enabled: true
+    require_metric_units: true
+    minimum_gap_meters: 0.01
+    default_ego_speed_mps: null
+

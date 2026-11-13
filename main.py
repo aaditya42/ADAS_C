@@ -106,11 +106,30 @@ def main() -> None:
                 if key == ord("f"):
                     pipeline.renderer.toggle("fps")
                     logger.info("Toggled FPS layer")
+                if key == ord("t"):
+                    pipeline.renderer.toggle("trajectory")
+                    logger.info("Toggled trajectory layer")
+                if key == ord("o"):
+                    enabled = pipeline.renderer.toggle("overtaking")
+                    logger.info("Toggled overtaking layer: %s", "ON" if enabled else "OFF")
+                if key == ord("w"):
+                    enabled = pipeline.renderer.toggle("warning")
+                    logger.info("Toggled warning HUD: %s", "ON" if enabled else "OFF")
 
     if video_writer is not None:
         video_writer.release()
 
-    cv2.destroyWindow(window_name)
+    pipeline.export_trajectory_evaluation()
+    pipeline.finish_overtaking_session()
+    pipeline.export_overtaking_evaluation()
+    pipeline.finish_threat_session()
+    pipeline.export_threat_evaluation()
+
+    if config.get("visualization", {}).get("display", True):
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
     logger.info("Exited after processing %d frames", frame_count)
 
 

@@ -1,0 +1,10 @@
+### Table: Model Summary
+
+| Subsystem | Model Architecture | Checkpoint / Weights | Input Resolution | Classes | Device |
+| --- | --- | --- | --- | --- | --- |
+| Object Detection | YOLO11s (Ultralytics) | ./weights/best.pt | 640 x 640 | 13 domain-specific ADAS classes (inc. autorickshaw, rider) | cuda:0 |
+| Multi-Object Tracking | ByteTrack (Kalman + Hungarian) | Algorithmic (No weights) | Bounding box coordinates | Class-agnostic association (lost buffer: 30 frames) | cpu |
+| Monocular Depth | Depth Anything V2 Small (ViT-Small) | depth-anything/Depth-Anything-V2-Small-hf | 518 x 518 | Continuous relative inverse depth (LARGER=FARTHER) | cuda:0 |
+| Lane Detection | CLRNet (Cross Layer Refinement) | ./weights/culane_r18.pth (ResNet-18) | 800 x 320 | Up to 4 lane boundaries with polynomial fitting | cuda:0 |
+| Pose Estimation | YOLOv8-Pose (Ultralytics) | ./weights/yolo11n-pose.pt | 640 x 640 | 17 human skeletal keypoints | cuda:0 |
+| Trajectory Forecasting | Constant Acceleration Kalman Filter (CA-KF) | Algorithmic dynamical model | Historical (x, y) centroids | All active road users (2.0s horizon, 0.1s step) | cpu |

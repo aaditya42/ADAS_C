@@ -1,0 +1,110 @@
+video:
+  type: picamera
+  width: 640
+  height: 480
+  framerate: 30
+
+detector:
+  type: yolo_onnx
+  model_path: weights/yolo11n.onnx
+  conf_threshold: 0.3
+  iou_threshold: 0.45
+  providers: ["CPUExecutionProvider"]
+  class_names_path: configs/coco_classes.txt
+
+tracker:
+  type: bytetrack
+  track_activation_threshold: 0.25
+  lost_track_buffer: 15
+  minimum_matching_threshold: 0.8
+  frame_rate: 15
+  minimum_consecutive_frames: 1
+
+depth:
+  enabled: true
+  type: depth_anything_onnx
+  model_path: weights/depth_anything_v2_small.onnx
+  input_size: 224
+  run_every_n_frames: 3
+
+fusion:
+  sampling: median_center
+  center_box_ratio: 0.5
+  min_valid_depth_pixels: 10
+
+distance:
+  type: relative
+
+memory:
+  max_history_per_track: 30
+  stale_after_frames: 30
+
+motion:
+  enabled: true
+  min_samples: 5
+  smoothing: ema
+  ema_alpha: 0.4
+  stationary_threshold_mps: 0.3
+
+ttc:
+  type: simple
+  max_ttc_seconds: 30.0
+  min_speed_mps: 0.2
+
+risk:
+  type: score_based
+  weights:
+    distance: 0.4
+    ttc: 0.5
+    speed: 0.1
+    lane: 0.1
+    scene: 0.15
+  thresholds:
+    dist_critical_m: 5.0
+    dist_safe_m: 50.0
+    ttc_critical_s: 1.0
+    ttc_safe_s: 6.0
+    speed_critical_mps: 15.0
+
+warning:
+  min_level: MEDIUM
+  cooldown_sec: 2.0
+  hysteresis_frames: 3
+  channels:
+    - console
+
+lane:
+  enabled: true
+  model_type: clrnet
+  model_path: weights/clrnet.onnx
+  device: cpu
+  input_width: 800
+  input_height: 320
+  conf_threshold: 0.5
+  lane_confidence_threshold: 0.5
+  max_lanes: 4
+  temporal_smoothing: false
+  smoothing_window: 3
+
+signs:
+  enabled: false
+
+scene:
+  enabled: true
+  sign_latch_frames: 30
+
+visualization:
+  enabled: true
+  layers:
+    - perceived
+    - risk
+    - lane
+    - hud
+    - fps
+  perceived:
+    show_distance: true
+    show_speed: true
+    show_ttc: true
+  display: true
+  save_video: false
+  output_path: ""

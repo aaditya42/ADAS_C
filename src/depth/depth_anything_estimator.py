@@ -49,6 +49,10 @@ class DepthAnythingEstimator(BaseDepthEstimator):
         if self._pipeline is None:
             self._load_pipeline()
 
+        if self._pipeline is False:
+            h, w = frame.image.shape[:2]
+            return np.zeros((h, w), dtype=np.float32)
+
         # BGR → RGB → PIL
         rgb = self._cv2.cvtColor(frame.image, self._cv2.COLOR_BGR2RGB)
         pil_image = self._Image.fromarray(rgb)
@@ -85,11 +89,36 @@ class DepthAnythingEstimator(BaseDepthEstimator):
             self._model_name,
             self._device,
         )
-        self._pipeline = pipeline(
-            "depth-estimation",
-            model=self._model_name,
-            device=self._device,
-        )
+        try:
+            self._pipeline = pipeline(
+                "depth-estimation",
+                model=self._model_name,
+                device=self._device,
+            )
+        except Exception as exc:
+            self._logger.warning(
+                "Network check failed (%s); attempting offline cache load...", exc
+            )
+            import os
+            prev_offline = os.environ.get("HF_HUB_OFFLINE")
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            try:
+                self._pipeline = pipeline(
+                    "depth-estimation",
+                    model=self._model_name,
+                    device=self._device,
+                )
+            except Exception as inner_exc:
+                self._logger.warning(
+                    "Offline depth load also failed (%s); depth estimator will output zero map", inner_exc
+                )
+                self._pipeline = False
+            finally:
+                if prev_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = prev_offline
+                else:
+                    os.environ.pop("HF_HUB_OFFLINE", None)
+
         self._logger.info(
             "Depth pipeline loaded  |  model=%s  |  device=%s  |  "
             "input_size=%d",

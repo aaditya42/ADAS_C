@@ -1,0 +1,40 @@
+# =============================================================================
+# Pose Estimation — Default Configuration
+# =============================================================================
+# Set enabled: true and choose estimator types/model paths to activate.
+# When disabled (default) the pipeline returns empty pose results with
+# zero overhead.
+# =============================================================================
+
+enabled: false
+
+human:
+  estimator: null              # null | yolov8_pose | rtmpose
+  model_path: null             # path to model weights (null = use default)
+                               # For yolov8_pose: e.g. ./weights/yolov8n-pose.pt
+                               # or ./weights/yolov8n-pose.onnx
+  device: cpu                  # cpu | cuda:0 | mps
+  input_size: [640, 640]       # [height, width] — YOLOv8-Pose uses square input
+  confidence_threshold: 0.5    # keypoint confidence threshold
+
+animal:
+  estimator: null              # null | ap10k_hrnet
+  model_path: null             # path to model weights (e.g. ./weights/ap10k_hrnet.onnx)
+  device: cpu                  # cpu | cuda:0 | mps
+  input_size: [256, 256]       # [height, width] — HRNet uses 256x256 by default
+  confidence_threshold: 0.5    # keypoint confidence threshold
+  supported_species: []        # allow-list: e.g. ["dog", "cow", "deer"]
+                               # empty = all recognised species are supported
+
+  # Optional: override or extend the default COCO class → species mapping.
+  # Keys are COCO class IDs, values are species names.
+  # Default mapping covers COCO indices 16–23:
+  #   16: dog, 17: horse, 18: sheep, 19: cow,
+  #   20: elephant, 21: bear, 22: zebra, 23: giraffe
+  # class_to_species:
+  #   16: dog
+  #   19: cow
+  #   21: bear
+
+max_persons: 10
+max_animals: 10

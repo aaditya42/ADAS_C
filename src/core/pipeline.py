@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from src.schemas import Detection, Frame, PerceivedObject, TrackedObject
+
+logger = logging.getLogger(__name__)
 
 
 class PerceptionPipeline:
@@ -40,6 +44,21 @@ class PerceptionPipeline:
         self._renderer: Any = None
         self._pose_subsystem: Any = None
         self._behavior_subsystem: Any = None
+        self._trajectory_predictor: Any = None
+        self._overtaking_detector: Any = None
+        self._threat_feature_extractor: Any = None
+        self._scenario_classifier: Any = None
+        self._threat_risk_engine: Any = None
+        self._threat_prioritizer: Any = None
+        self._directional_warning_generator: Any = None
+        self._last_threat_features: dict[int, Any] = {}
+        self._last_threat_scenarios: dict[int, Any] = {}
+        self._last_threat_assessments: dict[int, Any] = {}
+        self._last_prioritized_threats: list[Any] = []
+        self._last_directional_warnings: list[Any] = []
+        self._last_directional_warning_events: list[Any] = []
+        self._processed_frames: int = 0
+        self._last_processed_timestamp: float = 0.0
 
         # Eager init for sign detector (controlled by config)
         signs_cfg = config.get("signs", {})
@@ -202,6 +221,10 @@ class PerceptionPipeline:
             ``"detections"``, ``"tracked"``, ``"depth_map"``,
             ``"perceived"`` and ``"history"``.
         """
+        self._processed_frames += 1
+        if frame is not None and getattr(frame, "timestamp", None) is not None:
+            self._last_processed_timestamp = float(frame.timestamp)
+
         detections: list[Detection] = self.detector.detect(frame)
         tracked: list[TrackedObject] = self.tracker.update(detections, frame)
         pose_frame = self._estimate_pose(frame, detections, tracked)
@@ -220,6 +243,50 @@ class PerceptionPipeline:
             behavior_frame=behavior_frame,
         )
         alerts = self._process_warnings(risk_objects, frame)
+        trajectories = self._predict_trajectories(
+            perceived, frame, motion=motion, lane_info=lane_info, scene_context=scene_context
+        )
+        evaluations = (
+            getattr(self.trajectory_predictor, "last_active_evaluations", [])
+            if self.trajectory_predictor is not None
+            else []
+        )
+        overtaking_result = self._process_overtaking(
+            perceived, lane_info, scene_context, frame
+        )
+        threat_features = self._extract_threat_features(
+            perceived=perceived,
+            motion=motion,
+            ttc=ttc,
+            lane_info=lane_info,
+            scene_context=scene_context,
+            behavior_frame=behavior_frame,
+            trajectories=trajectories,
+            frame=frame,
+        )
+        threat_scenarios = self._classify_threat_scenarios(
+            threat_features=threat_features,
+            frame=frame,
+        )
+        threat_assessments = self._evaluate_threat_risks(
+            threat_features=threat_features,
+            threat_scenarios=threat_scenarios,
+        )
+        prioritized_threats = self._prioritize_threats(
+            threat_assessments=threat_assessments,
+        )
+        directional_warnings, warning_events = self._generate_directional_warnings(
+            threat_assessments=threat_assessments,
+            threat_features=threat_features,
+            lane_info=lane_info,
+            frame=frame,
+        )
+        self._last_threat_features = threat_features
+        self._last_threat_scenarios = threat_scenarios
+        self._last_threat_assessments = threat_assessments
+        self._last_prioritized_threats = prioritized_threats
+        self._last_directional_warnings = directional_warnings
+        self._last_directional_warning_events = warning_events
 
         result: dict[str, Any] = {
             "frame": frame,
@@ -230,6 +297,17 @@ class PerceptionPipeline:
             "perceived": perceived,
             "history": self.history,
             "motion": motion,
+            "trajectories": trajectories,
+            "trajectory": trajectories,
+            "trajectory_evaluations": evaluations,
+            "overtaking": overtaking_result,
+            "threat_features": threat_features,
+            "threat_scenarios": threat_scenarios,
+            "threat_assessments": threat_assessments,
+            "prioritized_threats": prioritized_threats,
+            "warnings": directional_warnings,
+            "directional_warnings": directional_warnings,
+            "warning_events": warning_events,
             "ttc": ttc,
             "risk": risk_objects,
             "alerts": alerts,
@@ -239,6 +317,124 @@ class PerceptionPipeline:
             "behavior": behavior_frame,
         }
         return result
+
+    @property
+    def trajectory_predictor(self) -> Any:
+        """Lazy-initialised trajectory predictor (or None if disabled)."""
+        if self._trajectory_predictor is None:
+            traj_cfg = self.config.get("trajectory", {})
+            if traj_cfg.get("enabled", True):
+                from src.trajectory.factory import build_trajectory_predictor  # noqa: PLC0415
+
+                self._trajectory_predictor = build_trajectory_predictor(self.config)
+            else:
+                self._trajectory_predictor = False
+        return self._trajectory_predictor if self._trajectory_predictor is not False else None
+
+    def _predict_trajectories(
+        self,
+        objects: list[PerceivedObject | TrackedObject],
+        frame: Frame,
+        motion: dict[int, Any] | None = None,
+        lane_info: Any = None,
+        scene_context: Any = None,
+    ) -> list[Any]:
+        """Generate future trajectory predictions for tracked objects."""
+        predictor = self.trajectory_predictor
+        if predictor is None:
+            return []
+        try:
+            return predictor.predict(
+                objects,
+                frame,
+                motion=motion,
+                lane_info=lane_info,
+                scene_context=scene_context,
+            )
+        except Exception:
+            return []
+
+    def export_trajectory_evaluation(
+        self, output_path: str | None = None
+    ) -> Any:
+        """Export trajectory evaluation workbook to Excel."""
+        if self.trajectory_predictor is not None:
+            return self.trajectory_predictor.export_evaluation(output_path)
+        return None
+
+    @property
+    def overtaking_detector(self) -> Any:
+        """Lazy-initialised overtaking detector (or None if disabled)."""
+        if self._overtaking_detector is None:
+            ot_cfg = self.config.get("overtaking", {})
+            if ot_cfg.get("enabled", True):
+                from src.overtaking.detector import OvertakingDetector  # noqa: PLC0415
+
+                self._overtaking_detector = OvertakingDetector(self.config)
+            else:
+                self._overtaking_detector = False
+        return self._overtaking_detector if self._overtaking_detector is not False else None
+
+    def _process_overtaking(
+        self,
+        objects: list[PerceivedObject | TrackedObject],
+        lane_info: Any,
+        scene_context: Any,
+        frame: Frame,
+    ) -> Any:
+        """Process overtaking events for tracked objects."""
+        detector = self.overtaking_detector
+        if detector is None:
+            return None
+        try:
+            return detector.process(objects, lane_info, scene_context, frame)
+        except Exception:
+            return None
+
+    def finish_overtaking_session(self) -> None:
+        """Finalize any pending active overtaking events when the video stream ends."""
+        if self.overtaking_detector is not None:
+            self.overtaking_detector.finish_session(final_timestamp=self._last_processed_timestamp)
+            ot_cfg = self.config.get("overtaking", {})
+            if ot_cfg.get("export", {}).get("export_on_session_end", True):
+                try:
+                    self.export_overtaking_evaluation()
+                except Exception as exc:
+                    logger.warning("Failed to auto-export overtaking evaluation report: %s", exc)
+
+    def export_overtaking_evaluation(self, output_path: str | None = None) -> Any:
+        """Export overtaking evaluation workbook to Excel."""
+        detector = self.overtaking_detector
+        if detector is None:
+            return None
+
+        events = detector.all_events
+        ot_cfg = self.config.get("overtaking", {})
+        exp_cfg = ot_cfg.get("export", {})
+
+        output_dir = exp_cfg.get("output_dir", "./reports")
+        filename = exp_cfg.get("filename", "Overtaking_Evaluation.xlsx")
+
+        if output_path is not None:
+            out_p = Path(output_path)
+            output_dir = str(out_p.parent)
+            filename = out_p.name
+
+        from src.overtaking.excel_exporter import OvertakingExcelExporter  # noqa: PLC0415
+
+        metadata = {
+            "video_path": getattr(self.frame_source, "path", self.config.get("video", {}).get("path", "N/A")),
+            "fps": getattr(self.frame_source, "fps", 30.0),
+            "width": getattr(self.frame_source, "width", 1280),
+            "height": getattr(self.frame_source, "height", 720),
+            "frame_count": self._processed_frames,
+            "duration_seconds": self._last_processed_timestamp,
+        }
+
+        exporter = OvertakingExcelExporter(output_dir=output_dir, filename=filename)
+        return exporter.export(events, metadata=metadata, config=self.config)
+
+
 
     @property
     def motion_estimator(self) -> Any:
@@ -479,3 +675,273 @@ class PerceptionPipeline:
                 if frame is None:
                     break
                 self.process(frame)
+
+    @property
+    def threat_feature_extractor(self) -> Any:
+        """Lazy-initialised threat feature extractor."""
+        if self._threat_feature_extractor is None:
+            threat_cfg = self.config.get("threat_assessment", {})
+            if threat_cfg.get("enabled", True):
+                from src.threat.feature_extractor import ThreatFeatureExtractor  # noqa: PLC0415
+
+                self._threat_feature_extractor = ThreatFeatureExtractor(self.config)
+            else:
+                self._threat_feature_extractor = False
+        return self._threat_feature_extractor if self._threat_feature_extractor is not False else None
+
+    @property
+    def scenario_classifier(self) -> Any:
+        """Lazy-initialised scenario classifier."""
+        if self._scenario_classifier is None:
+            threat_cfg = self.config.get("threat_assessment", {})
+            if threat_cfg.get("enabled", True):
+                from src.threat.scenario_classifier import ScenarioClassifier  # noqa: PLC0415
+
+                self._scenario_classifier = ScenarioClassifier(self.config)
+            else:
+                self._scenario_classifier = False
+        return self._scenario_classifier if self._scenario_classifier is not False else None
+
+    def _extract_threat_features(
+        self,
+        perceived: list[PerceivedObject],
+        motion: dict[int, Any],
+        ttc: dict[int, float | None],
+        lane_info: Any,
+        scene_context: Any,
+        behavior_frame: Any,
+        trajectories: Any,
+        frame: Frame,
+    ) -> dict[int, Any]:
+        """Extract threat features for all perceived objects."""
+        extractor = self.threat_feature_extractor
+        if extractor is None:
+            return {}
+        try:
+            return extractor.extract(
+                perceived_objects=perceived,
+                motion_map=motion,
+                ttc_map=ttc,
+                lane_info=lane_info,
+                scene_context=scene_context,
+                behavior_frame=behavior_frame,
+                trajectories=trajectories,
+                frame=frame,
+            )
+        except Exception as exc:
+            logger.warning("Threat feature extraction failed: %s", exc)
+            return {}
+
+    def _classify_threat_scenarios(
+        self,
+        threat_features: dict[int, Any],
+        frame: Frame,
+    ) -> dict[int, Any]:
+        """Classify conflict scenarios for extracted threat features."""
+        classifier = self.scenario_classifier
+        if classifier is None or not threat_features:
+            return {}
+        try:
+            t = float(frame.timestamp) if frame is not None else 0.0
+            return classifier.classify(threat_features, frame_timestamp=t)
+        except Exception as exc:
+            logger.warning("Scenario classification failed: %s", exc)
+            return {}
+
+    def get_threat_features(self) -> dict[int, Any]:
+        """Return the most recently extracted threat features."""
+        return self._last_threat_features
+
+    def get_threat_scenarios(self) -> dict[int, Any]:
+        """Return the most recently classified threat scenarios."""
+        return self._last_threat_scenarios
+
+    def get_threat_assessments(self) -> dict[int, Any]:
+        """Return the most recently evaluated threat risk assessments."""
+        return self._last_threat_assessments
+
+    def get_prioritized_threats(self) -> list[Any]:
+        """Return the most recently prioritized threat list."""
+        return self._last_prioritized_threats
+
+    def get_primary_threat(self) -> Any | None:
+        """Return the top primary threat if present."""
+        if self._last_prioritized_threats and getattr(self._last_prioritized_threats[0], "is_primary_threat", False):
+            return self._last_prioritized_threats[0]
+        return None
+
+    @property
+    def threat_risk_engine(self) -> Any:
+        """Lazy-initialised threat risk assessment engine."""
+        if self._threat_risk_engine is None:
+            threat_cfg = self.config.get("threat_assessment", {})
+            if threat_cfg.get("enabled", True):
+                from src.threat.risk_engine import ScenarioRiskEngine  # noqa: PLC0415
+
+                self._threat_risk_engine = ScenarioRiskEngine(self.config)
+            else:
+                self._threat_risk_engine = False
+        return self._threat_risk_engine if self._threat_risk_engine is not False else None
+
+    @property
+    def threat_prioritizer(self) -> Any:
+        """Lazy-initialised dynamic threat prioritizer."""
+        if self._threat_prioritizer is None:
+            threat_cfg = self.config.get("threat_assessment", {})
+            if threat_cfg.get("enabled", True):
+                from src.threat.prioritizer import ThreatPrioritizer  # noqa: PLC0415
+
+                self._threat_prioritizer = ThreatPrioritizer(self.config)
+            else:
+                self._threat_prioritizer = False
+        return self._threat_prioritizer if self._threat_prioritizer is not False else None
+
+    def _evaluate_threat_risks(
+        self,
+        threat_features: dict[int, Any],
+        threat_scenarios: dict[int, Any],
+    ) -> dict[int, Any]:
+        """Evaluate risk assessments using scenario-specific models."""
+        engine = self.threat_risk_engine
+        if engine is None or not threat_features:
+            return {}
+        try:
+            return engine.evaluate(threat_features, threat_scenarios)
+        except Exception as exc:
+            logger.warning("Threat risk evaluation failed: %s", exc)
+            return {}
+
+    def _prioritize_threats(
+        self,
+        threat_assessments: dict[int, Any],
+    ) -> list[Any]:
+        """Prioritize and rank active threat assessments."""
+        prioritizer = self.threat_prioritizer
+        if prioritizer is None or not threat_assessments:
+            return []
+        try:
+            return prioritizer.prioritize(threat_assessments)
+        except Exception as exc:
+            logger.warning("Threat prioritization failed: %s", exc)
+            return []
+
+    @property
+    def directional_warning_generator(self) -> Any:
+        """Lazy-initialised directional warning generator and event manager."""
+        if self._directional_warning_generator is None:
+            threat_cfg = self.config.get("threat_assessment", {})
+            warn_cfg = threat_cfg.get("directional_warnings", {})
+            if threat_cfg.get("enabled", True) and warn_cfg.get("enabled", True):
+                from src.threat.warning_generator import DirectionalWarningGenerator  # noqa: PLC0415
+
+                self._directional_warning_generator = DirectionalWarningGenerator(self.config)
+            else:
+                self._directional_warning_generator = False
+        return self._directional_warning_generator if self._directional_warning_generator is not False else None
+
+    def _generate_directional_warnings(
+        self,
+        threat_assessments: dict[int, Any],
+        threat_features: dict[int, Any],
+        lane_info: Any,
+        frame: Frame,
+    ) -> tuple[list[Any], list[Any]]:
+        """Generate directional warnings and manage warning event lifecycles."""
+        generator = self.directional_warning_generator
+        if generator is None:
+            return [], []
+        try:
+            active_warnings = generator.process(
+                threat_assessments=threat_assessments,
+                threat_features=threat_features,
+                lane_info=lane_info,
+                frame=frame,
+            )
+            return active_warnings, generator.get_all_events()
+        except Exception as exc:
+            logger.warning("Directional warning generation failed: %s", exc)
+            return [], []
+
+    def get_directional_warnings(self) -> list[Any]:
+        """Return the most recently generated active directional warnings."""
+        return self._last_directional_warnings
+
+    def get_directional_warning_events(self) -> list[Any]:
+        """Return all tracked directional warning events (active + historical)."""
+        return self._last_directional_warning_events
+
+    def finish_threat_session(self) -> None:
+        """Finalize any pending active threat warning events when the video stream ends."""
+        generator = self.directional_warning_generator
+        if generator is not None:
+            generator.finish_session(final_timestamp=self._last_processed_timestamp)
+            threat_cfg = self.config.get("threat_assessment", {})
+            warn_cfg = threat_cfg.get("directional_warnings", {})
+            if warn_cfg.get("export", {}).get("export_on_session_end", True):
+                try:
+                    self.export_threat_evaluation()
+                except Exception as exc:
+                    logger.warning("Failed to auto-export threat evaluation report: %s", exc)
+
+    def export_threat_evaluation(self, output_path: str | None = None) -> Any:
+        """Export threat assessment and warning evaluation workbook to Excel."""
+        generator = self.directional_warning_generator
+        if generator is None:
+            return None
+
+        events = generator.get_all_events()
+        history = generator.get_warning_history()
+        details = generator.get_risk_assessment_details()
+        suppressed = generator.get_suppressed_duplicate_count()
+
+        threat_cfg = self.config.get("threat_assessment", {})
+        warn_cfg = threat_cfg.get("directional_warnings", {})
+        exp_cfg = warn_cfg.get("export", {})
+
+        output_dir = exp_cfg.get("output_dir", "./reports")
+        filename = exp_cfg.get("filename", "Threat_Assessment_Evaluation.xlsx")
+
+        if output_path is not None:
+            out_p = Path(output_path)
+            output_dir = str(out_p.parent)
+            filename = out_p.name
+
+        from src.threat.excel_exporter import ThreatExcelExporter  # noqa: PLC0415
+
+        metadata = {
+            "video_path": getattr(self.frame_source, "path", self.config.get("video", {}).get("path", "N/A")),
+            "fps": getattr(self.frame_source, "fps", 30.0),
+            "width": getattr(self.frame_source, "width", 1280),
+            "height": getattr(self.frame_source, "height", 720),
+            "frame_count": self._processed_frames,
+            "duration_s": self._last_processed_timestamp,
+            "processing_fps": getattr(self.frame_source, "fps", 30.0),
+        }
+
+        exporter = ThreatExcelExporter(output_dir=output_dir, filename=filename)
+        return exporter.export(
+            events=events,
+            history=history,
+            risk_details=details,
+            suppressed_duplicates=suppressed,
+            metadata=metadata,
+            config=self.config,
+        )
+
+    def reset_threat_state(self) -> None:
+        """Reset internal states of threat extractor, classifier, prioritizer, and warning manager."""
+        if self.threat_feature_extractor is not None:
+            self.threat_feature_extractor.reset()
+        if self.scenario_classifier is not None:
+            self.scenario_classifier.reset()
+        if self.threat_prioritizer is not None:
+            self.threat_prioritizer.reset()
+        if self.directional_warning_generator is not None:
+            self.directional_warning_generator.reset()
+        self._last_threat_features = {}
+        self._last_threat_scenarios = {}
+        self._last_threat_assessments = {}
+        self._last_prioritized_threats = []
+        self._last_directional_warnings = []
+        self._last_directional_warning_events = []
+

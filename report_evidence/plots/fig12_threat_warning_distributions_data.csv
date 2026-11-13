@@ -1,0 +1,13 @@
+Metric,Category,Count
+Level,HIGH,46
+Level,LOW,13
+Level,MEDIUM,3
+Scenario,REAR_END,28
+Scenario,VEHICLE_CUT_IN,17
+Scenario,UNKNOWN,13
+Scenario,ADJACENT_LANE_THREAT,4
+Direction,FRONT,38
+Direction,FRONT_RIGHT,11
+Direction,RIGHT,6
+Direction,FRONT_LEFT,5
+Direction,LEFT,2
